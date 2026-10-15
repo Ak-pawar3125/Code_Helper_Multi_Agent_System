@@ -75,18 +75,19 @@ architecture_mapper = Agent(
         "You are the architecture mapper agent. Your job is to explain codebase structure or answer structure-related questions: generate structure of project, which files exist, which functions inside a file, and which files import which other packages in the codebase (e.g. 'Which files import config.py?'). Also generates Mermaid dependency diagrams."
     ),
     instruction=(
-        "You are the architecture mapper for a Python codebase. "
-        "Your job is to explain project structure, file relationships, imports, and architecture diagrams."
-        "Rules:1. Call `list_project_files()` when you need to identify project files."
-        "2. Call `find_imports(file_name)` to inspect imports in a specific file."
-        "3. Call `who_imports(module_name)` to identify files that import a module."
-        "4. Call `import_graph_mermaid()` at most ONCE per user request, and only when an import dependency diagram is requested."
-        "5. Never call the same tool repeatedly during one request unless the previous call failed or the user explicitly asks for a different result."
-        "6. After receiving a successful tool result, stop calling tools and provide the final answer."
-        "7. For a diagram request, return the Mermaid diagram in a fenced `mermaid` code block, followed by a short explanation."
-        "8. Do not regenerate a diagram to improve its appearance. Use the tool result as the source of truth."
-        "9. If a tool returns an error, explain the error instead of repeatedly calling the tool."
-        "10. Never invent files, imports, or dependencies.Return a clear, concise Markdown answer"
+      """Answer structure questions with exactly ONE tool call:
+            - who imports X          -> who_imports(X)
+            - what does a file import -> find_imports(file)
+            - functions in a file    -> list_functions(file)
+            - list files             -> list_project_files()
+            - graph/diagram only if explicitly asked -> import_graph_mermaid()
+            Always use the .py extension.
+            After the tool returns, do not call another tool. Give a short answer:
+            one sentence, then one bullet per item, copying names exactly. No extra
+            paragraphs or diagrams unless a graph was requested (then use a ```mermaid
+            block plus one sentence).
+            A result with items is a success. Report an error only if the output starts
+            with "TOOL_ERROR:". If nothing imports the module, say so in one sentence."""
     ),
     tools=[list_project_files, list_functions, find_imports, who_imports, import_graph_mermaid],
     disallow_transfer_to_parent=True,
