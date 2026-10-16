@@ -31,15 +31,15 @@ Code Helper answers questions about a small Python project (Sample_Project/, a N
 | `get_project_overview` | `onboarding_guide` | Summarizes each file and the start of `main.py`, and explains where to begin | No |
 | Filesystem MCP tools | `code_explainer` | Read whole files from the sample project (not counted in the 7 tools above) | No |
 
-Six of the seven tools are plain Python. The Filesystem MCP server's own tools are not counted in the seven.
+Six of the seven tools are plain Python.
 
 ### RAG pipeline
 
-1. Read: every top-level .py file in Sample_Project/.
-2. Split: hybrid chunking (see below).
-3. Embed: each chunk is sent to nvidia/nemotron-3-embed-1b on NVIDIA NIM through the openai client. Chunks are embedded as passage, questions as query. Vectors have 2048 dimensions.
-4. Store: Pinecone serverless index code-helper (2048 dimensions, cosine), with file path, line range, chunk type, name and text as metadata.
-5. Search: the question is embedded, then Pinecone returns the 5 closest chunks.
+1. **Read:** every top-level .py file in Sample_Project/.
+2. **Split:** hybrid chunking (see below).
+3. **Embed:** each chunk is sent to nvidia/nemotron-3-embed-1b on NVIDIA NIM through the openai client. Chunks are embedded as passage, questions as query. Vectors have 2048 dimensions.
+4. **Store:** Pinecone serverless index code-helper (2048 dimensions, cosine), with file path, line range, chunk type, name and text as metadata.
+5. **Search:** the question is embedded, then Pinecone returns the 5 closest chunks.
 
 ### Chunking: size and why
 
@@ -54,25 +54,25 @@ Method: hybrid, structure-aware chunking (built with Python's ast module).
 
 code has a clear structure that a plain fixed-size splitter ignores, so I combined two methods.
 
-- Structure first. A question like "Where is the search done?" is normally answered by one whole function. Making each function and class one chunk keeps every result readable on its own, and the saved line range and function name point to an exact place. Fixed-size splitting would cut functions in half.
-- Fixed-size splitting as a safety net. Chunks are capped at 300 tokens, because a very long block mixes several ideas. Longer blocks are split by lines with a 3-line overlap, so a cut never separates a statement from its context. Overlap is used only here.
-- Module-level code kept, but filtered. Imports and constants stay as chunks, but those under 60 tokens are skipped because they carry almost no meaning.
+- **Structure first:** A question like "Where is the search done?" is normally answered by one whole function. Making each function and class one chunk keeps every result readable on its own, and the saved line range and function name point to an exact place. Fixed-size splitting would cut functions in half.
+- **Fixed-size splitting as a safety net:** Chunks are capped at 300 tokens, because a very long block mixes several ideas. Longer blocks are split by lines with a 3-line overlap, so a cut never separates a statement from its context. Overlap is used only here.
+- **Module-level code kept, but filtered:** Imports and constants stay as chunks, but those under 60 tokens are skipped because they carry almost no meaning.
 
 On the sample project this gave 49 chunks averaging 205 tokens, with the largest at the 300-token cap.
 
 ### MCP server: Filesystem
 
-Server: @modelcontextprotocol/server-filesystem, started with npx and connected through ADK's McpToolset. It is attached to code_explainer only.
+**Server**: @modelcontextprotocol/server-filesystem, started with npx and connected through ADK's McpToolset. It is attached to code_explainer only.
 
-Why: the Code Explainer must read whole files, and this ready-made server provides file-reading tools without writing a custom function. It can only read the folder it is given, so it is restricted to Sample_Project/ and cannot reach .env or the agent code.
+**Why**: the Code Explainer must read whole files, and this ready-made server provides file-reading tools without writing a custom function. It can only read the folder it is given, so it is restricted to Sample_Project/ and cannot reach .env or the agent code.
 
 ### Sample Questions
 
-- Question 1: Search goal define in config.py file
+- **Question 1:** Search goal define in config.py file
 
 Answer : The goal of the code is to load, validate, and manage credentials and runtime parameters for NVIDIA NIM (Embeddings & LLM Generation) and Pinecone Vector Database. This is done to centralize configuration, prevent scattered calls to os.getenv() across multiple modules, and guarantee that if an API key is missing or the network is unavailable during a live lecture, the system can gracefully inform the student or fall back to a safe offline demonstration mode without crashing.
 
-- Question 2: I am new user. How do I start this project?
+- **Question 2:** I am new user. How do I start this project?
 
 Answer : ## Project Overview
 This project implements a complete Naive RAG (Retrieval-Augmented Generation) pipeline. It loads knowledge documents, chunks them, embeds them via NVIDIA NIM, and stores them in Pinecone. When queried, it retrieves the most relevant chunks and generates grounded, factual answers.
@@ -94,7 +94,7 @@ python main.py --index
 python main.py --query "What is the coolant temperature for the fusion reactor?"
 python main.py --compare
 ```
-- Question 3: list functions of main.py.
+- **Question 3:** list functions of main.py.
 
 Answer : The main.py file contains four functions:
 print_banner(title: str)
@@ -102,7 +102,7 @@ print_scorecard(query: str, raw_answer: str, rag_answer: str, chunks: list[dict]
 run_full_demo(config: RAGConfig)
 main()
 
-- Question 4: Explain main.py file
+- **Question 4:** Explain main.py file
 
 Answer : The main.py file is the entry point of the Naive RAG Live Demonstration & Stage Walkthrough project. It provides an end-to-end interactive CLI runner for the Day 4 Naive RAG lecture, tracing each stage against the 8-box RAG architecture diagram (Slide 13).
 
@@ -125,16 +125,16 @@ The main function also defines a canonical test query and uses it to run the com
 
 ### Problem Occurs 
 
-*Problem:* agents looped on tool calls and gave wrong or missing answers even though the tool worked
+**Problem:** agents looped on tool calls and gave wrong or missing answers even though the tool worked
 
-*Symptoms:* In the ADK Events trace, tools such as `who_imports`, `list_functions` and `get_project_overview` returned correct results, but the worker agent:
+**Symptoms:** In the ADK Events trace, tools such as `who_imports`, `list_functions` and `get_project_overview` returned correct results, but the worker agent:
 - called the same tool again and again, sometimes producing 50 to 100 events for a single question;
 - sometimes ended with a false failure message ("I couldn't map the architecture", "The project overview failed"), although the tool had not raised an error and its output did not start with `TOOL_ERROR:`;
 - sometimes called extra tools that the question did not need (for example, drawing the import graph for a simple "who imports config.py" question).
 
-*Cause:* The tools were not at fault: I verified their output directly in the trace. The model (Llama 3.2 11B) was unreliable at the step after a tool returns. It did not treat the result as a finished answer, so it kept calling tools, and it fell back on failure wording. In a multi-agent setup, workers that are allowed to transfer control back to the coordinator or sideways to other workers can also bounce control between agents, which adds more events. This is the most likely explanation based on the traces.
+**Cause:** The tools were not at fault: I verified their output directly in the trace. The model (Llama 3.2 11B) was unreliable at the step after a tool returns. It did not treat the result as a finished answer, so it kept calling tools, and it fell back on failure wording. In a multi-agent setup, workers that are allowed to transfer control back to the coordinator or sideways to other workers can also bounce control between agents, which adds more events. This is the most likely explanation based on the traces.
 
-*Fix.* I made four changes and retested:
+**Fix:** I made four changes and retested:
 
 1. **Instructions with a clear stop rule.** Each worker was told to call its tool exactly once and then write the answer from the result. Failure is defined only as tool output that starts with `TOOL_ERROR:`, and the canned failure sentences were removed.
 2. **`temperature=0`.** Makes the model's behaviour after tool calls more consistent.
