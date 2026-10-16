@@ -1,14 +1,14 @@
 # Code_Helper_Multi_Agent_System
 
-# What Code_Helper does?
+### What Code_Helper does?
 
 Code Helper answers questions about a small Python project (Sample_Project/, a Naive RAG demo) using a team of five AI agents built with Google ADK: one coordinator(Boss) that only routes, and four workers(Code_Searcher, Code_Explainer, Architecture_Mapper, Onboarding_Guide). Each worker handles one kind of question: where code is, what a file does, how files connect, and where a newcomer should start. Search runs on a RAG pipeline written from scratch (no LangChain or LlamaIndex) that stores code chunks in Pinecone.
 
-# Architecture of Code_Helper
+### Architecture of Code_Helper
 
 ![alt text](image.png)
 
-# Table for Agents
+### Table for Agents
 
 | Agent | Job | Tools | Example question |
 |---|---|---|---|
@@ -18,7 +18,7 @@ Code Helper answers questions about a small Python project (Sample_Project/, a N
 | `architecture_mapper` | Lists files, functions and imports, and draws the import map, using plain Python. | `list_project_files`, `list_functions`, `find_imports`, `who_imports`, `import_graph_mermaid` | Which files import config.py? |
 | `onboarding_guide` | Says what the project does, how to run it and where to start. | `get_project_overview` | I am new. Where do I start? |
 
-# Table for Tools 
+### Table for Tools 
 
 | Tool | Used by | Purpose | Uses AI? |
 |---|---|---|---|
@@ -33,7 +33,7 @@ Code Helper answers questions about a small Python project (Sample_Project/, a N
 
 Six of the seven tools are plain Python. The Filesystem MCP server's own tools are not counted in the seven.
 
-# RAG pipeline
+### RAG pipeline
 
 1. Read: every top-level .py file in Sample_Project/.
 2. Split: hybrid chunking (see below).
@@ -41,7 +41,7 @@ Six of the seven tools are plain Python. The Filesystem MCP server's own tools a
 4. Store: Pinecone serverless index code-helper (2048 dimensions, cosine), with file path, line range, chunk type, name and text as metadata.
 5. Search: the question is embedded, then Pinecone returns the 5 closest chunks.
 
-# Chunking: size and why
+### Chunking: size and why
 
 Method: hybrid, structure-aware chunking (built with Python's ast module).
 
@@ -50,7 +50,7 @@ Method: hybrid, structure-aware chunking (built with Python's ast module).
 - Chunk size cap: 300 tokens (counted with tiktoken). A block above the cap is split by lines with a 3-line overlap, so a cut never separates a statement from its context.
 - Methods inside a class stay in the class chunk. A class above 300 tokens is split by lines.
 
-# Why I chose it: 
+### Why I chose it: 
 
 code has a clear structure that a plain fixed-size splitter ignores, so I combined two methods.
 
@@ -60,13 +60,13 @@ code has a clear structure that a plain fixed-size splitter ignores, so I combin
 
 On the sample project this gave 49 chunks averaging 205 tokens, with the largest at the 300-token cap.
 
-# MCP server: Filesystem
+### MCP server: Filesystem
 
 Server: @modelcontextprotocol/server-filesystem, started with npx and connected through ADK's McpToolset. It is attached to code_explainer only.
 
 Why: the Code Explainer must read whole files, and this ready-made server provides file-reading tools without writing a custom function. It can only read the folder it is given, so it is restricted to Sample_Project/ and cannot reach .env or the agent code.
 
-# Sample Questions
+### Sample Questions
 
 - Question 1: Search goal define in config.py file
 
@@ -123,7 +123,7 @@ The main function uses the argparse library to parse command-line arguments and 
 The main function also defines a canonical test query and uses it to run the complete live demo walkthrough by default.
 
 
-# Problem Occurs 
+### Problem Occurs 
 
 *Problem:* agents looped on tool calls and gave wrong or missing answers even though the tool worked
 
