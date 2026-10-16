@@ -2,7 +2,7 @@
 
 ### What Code_Helper does?
 
-Code Helper answers questions about a small Python project (Sample_Project/, a Naive RAG demo) using a team of five AI agents built with Google ADK: one coordinator(Boss) that only routes, and four workers(Code_Searcher, Code_Explainer, Architecture_Mapper, Onboarding_Guide). Each worker handles one kind of question: where code is, what a file does, how files connect, and where a newcomer should start. Search runs on a RAG pipeline written from scratch (no LangChain or LlamaIndex) that stores code chunks in Pinecone.
+Code Helper answers questions about a small Python project (Sample_Project) using a team of five AI agents built with Google ADK: one coordinator(Boss) that only routes, and four workers(Code_Searcher, Code_Explainer, Architecture_Mapper, Onboarding_Guide). Each worker handles one kind of question: where code is, what a file does, how files connect, and where a newcomer should start. Search runs on a RAG pipeline written from scratch (no LangChain or LlamaIndex) that stores code chunks in Pinecone.
 
 ### Architecture of Code_Helper
 
