@@ -72,29 +72,8 @@ On the sample project this gave 49 chunks averaging 205 tokens, with the largest
 
 Answer : The goal of the code is to load, validate, and manage credentials and runtime parameters for NVIDIA NIM (Embeddings & LLM Generation) and Pinecone Vector Database. This is done to centralize configuration, prevent scattered calls to os.getenv() across multiple modules, and guarantee that if an API key is missing or the network is unavailable during a live lecture, the system can gracefully inform the student or fall back to a safe offline demonstration mode without crashing.
 
-- **Question 2:** I am new user. How do I start this project?
-
-Answer : ## Project Overview
-This project implements a complete Naive RAG (Retrieval-Augmented Generation) pipeline. It loads knowledge documents, chunks them, embeds them via NVIDIA NIM, and stores them in Pinecone. When queried, it retrieves the most relevant chunks and generates grounded, factual answers.
-
-Recommended Reading Order
-1. config.py — Configuration, environment credentials, and data models.
-2. indexer.py — Knowledge document loading, AST chunking, and embedding pipeline.
-3. vector_store.py — Vector database management (Pinecone with local JSON fallback).
-4. query_pipeline.py — Live query embedding, top-k retrieval, and answer synthesis.
-5. main.py — End-to-end interactive CLI demonstration connecting all stages.
-
-How to Run
-```bash
-python main.py
-
-You can also run specific stages:
-
-python main.py --index
-python main.py --query "What is the coolant temperature for the fusion reactor?"
-python main.py --compare
 ```
-- **Question 3:** list functions of main.py.
+- **Question 2:** list functions of main.py.
 
 Answer : The main.py file contains four functions:
 print_banner(title: str)
@@ -123,20 +102,18 @@ The main function uses the argparse library to parse command-line arguments and 
 The main function also defines a canonical test query and uses it to run the complete live demo walkthrough by default.
 
 
-### Problem Occurs 
+### Troubleshooting: Agents Looping on Tool Calls
 
-**Problem:** agents looped on tool calls and gave wrong or missing answers even though the tool worked
+**Problem:** Worker agents called the same tool repeatedly (50-100 events for one question) and sometimes returned a false failure message such as "I couldn't map the architecture", even though the tool worked.
 
-**Symptoms:** In the ADK Events trace, tools such as `who_imports`, `list_functions` and `get_project_overview` returned correct results, but the worker agent:
-- called the same tool again and again, sometimes producing 50 to 100 events for a single question;
-- sometimes ended with a false failure message ("I couldn't map the architecture", "The project overview failed"), although the tool had not raised an error and its output did not start with `TOOL_ERROR:`;
-- sometimes called extra tools that the question did not need (for example, drawing the import graph for a simple "who imports config.py" question).
+**Symptoms** (seen in the ADK Events trace):
+- Tools like `who_imports`, `list_functions` and `get_project_overview` returned correct results, but the agent kept calling them again.
+- Agents ended with failure messages when the output did not start with `TOOL_ERROR:`.
+- Agents called tools the question did not need (e.g. drawing the import graph for a simple "who imports config.py").
 
-**Cause:** The tools were not at fault: I verified their output directly in the trace. The model (Llama 3.2 11B) was unreliable at the step after a tool returns. It did not treat the result as a finished answer, so it kept calling tools, and it fell back on failure wording. In a multi-agent setup, workers that are allowed to transfer control back to the coordinator or sideways to other workers can also bounce control between agents, which adds more events. This is the most likely explanation based on the traces.
+**Cause:** The tools were fine. The model (Llama 3.2 11B) was unreliable after receiving a tool result: it did not treat the result as a final answer and fell back on failure wording. Workers that could transfer control to the coordinator or to each other likely added extra events.
 
-**Fix:** I made four changes and retested:
-
-1. **Instructions with a clear stop rule.** Each worker was told to call its tool exactly once and then write the answer from the result. Failure is defined only as tool output that starts with `TOOL_ERROR:`, and the canned failure sentences were removed.
-2. **`temperature=0`.** Makes the model's behaviour after tool calls more consistent.
-3. **Transfers disabled on the workers.** Workers can no longer hand control back to the coordinator or to each other, so they must finish and answer themselves
-
+**Fix:**
+1. **Clear stop rule in instructions:** call the tool exactly once, then answer from the result. Treat only output starting with `TOOL_ERROR:` as a failure, and remove the canned failure sentences.
+2. **`temperature=0`** for more consistent behaviour after tool calls.
+3. **Transfers disabled on workers**, so they cannot hand control back or sideways and must answer themselves.
