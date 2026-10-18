@@ -69,10 +69,10 @@ Answer : The goal of the code is to load, validate, and manage credentials and r
 #### Question 2: list functions of main.py.
 
 Answer : The main.py file contains four functions:
-print_banner(title: str)
-print_scorecard(query: str, raw_answer: str, rag_answer: str, chunks: list[dict])
-run_full_demo(config: RAGConfig)
-main()
+- print_banner(title: str)
+- print_scorecard(query: str, raw_answer: str, rag_answer: str, chunks: list[dict])
+- run_full_demo(config: RAGConfig)
+- main()
 
 #### Question 3: Explain main.py file
 
