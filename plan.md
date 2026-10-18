@@ -112,26 +112,6 @@ All tools are written using Python standard library (`ast`, `pathlib`), return p
   - `onboarding_guide`: `tools=[get_project_overview]`
   - `coordinator`: `sub_agents=[code_searcher, code_explainer, architecture_mapper, onboarding_guide]`
 
-### Phase 6: Interactive Terminal Runner (`run.py` & `code_helper/cli.py`) — [PENDING]
-- Top-level entrypoints: `python run.py` or `python -m code_helper`.
-- **Command-line Options**:
-  - `python run.py`: launches interactive REPL chat session.
-  - `python run.py --index`: indexes the target codebase before opening the REPL.
-  - `python run.py --clean`: wipes existing vectors before indexing.
-  - `python run.py --project-dir <path>`: targets a custom codebase directory (defaults to `Sample_Project`).
-- **Interactive REPL Features**:
-  - Live agent transfer indicators: `[Coordinator -> Code Searcher]`
-  - Formatted markdown output with syntax highlighting.
-  - Interactive commands:
-    - `/help`: lists available commands and examples
-    - `/index`: triggers on-demand indexing
-    - `/clean`: wipes index and re-indexes
-    - `/overview`: runs project overview directly
-    - `/project <path>`: switches target project directory dynamically
-    - `/exit` or `exit`: quits the REPL.
-
----
-
 ## 4. Implementation Status & Checklist
 
 - [x] **Phase 1**: Implement and test 6 AST code tools in `code_helper/tools/code_tools.py`
@@ -139,5 +119,4 @@ All tools are written using Python standard library (`ast`, `pathlib`), return p
 - [ ] **Phase 3**: Implement precision RAG retrieval tool in `code_helper/tools/rag.py`
 - [ ] **Phase 4**: Set up MCP toolset integration with native fallbacks
 - [ ] **Phase 5**: Refactor, fix, and wire multi-agent definitions in `code_helper/agent.py`
-- [ ] **Phase 6**: Build interactive CLI REPL and top-level entrypoint `run.py`
-- [ ] **Phase 7**: End-to-end verification across all 4 worker agents on `Sample_Project/`
+- [ ] **Phase 6**: End-to-end verification across all 4 worker agents on `Sample_Project/`
