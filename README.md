@@ -8,57 +8,50 @@ Code Helper answers questions about a small Python project (Sample_Project) usin
 
 ![alt text](image.png)
 
-### Table for Agents
+### Agents
 
 | Agent | Job | Tools | Example question |
 |---|---|---|---|
-| `coordinator` | Sends each question to the right worker. Never answers itself. | none (routes only) | any question |
-| `code_searcher` | Finds where something is implemented, using RAG search. | `rag_search` | Where is the search done? |
-| `code_explainer` | Reads a whole file and explains it in simple text. | Filesystem MCP tools (`mcp_read_file`) | Explain vector_store.py |
-| `architecture_mapper` | Lists files, functions and imports, and draws the import map, using plain Python. | `list_project_files`, `list_functions`, `find_imports`, `who_imports`, `import_graph_mermaid` | Which files import config.py? |
-| `onboarding_guide` | Says what the project does, how to run it and where to start. | `get_project_overview` | I am new. Where do I start? |
+| `coordinator` | Routes each question to the right worker. Never answers itself. | none | any question |
+| `code_searcher` | Finds where something is implemented (RAG search). | `rag_search` | Where is the search done? |
+| `code_explainer` | Reads a whole file and explains it simply. | Filesystem MCP (`mcp_read_file`) | Explain vector_store.py |
+| `architecture_mapper` | Lists files, functions and imports, and draws the import map. | `list_project_files`, `list_functions`, `find_imports`, `who_imports`, `import_graph_mermaid` | Which files import config.py? |
+| `onboarding_guide` | Explains what the project does, how to run it and where to start. | `get_project_overview` | I am new. Where do I start? |
 
-### Table for Tools 
+### Tools
 
 | Tool | Used by | Purpose | Uses AI? |
 |---|---|---|---|
-| `rag_search` | `code_searcher` | Embeds the question and returns the closest code chunks from Pinecone, with file, line numbers and function name | Embedding only |
-| `list_project_files` | `architecture_mapper` | Lists the project's `.py` files with line counts | No |
-| `list_functions` | `architecture_mapper` | Lists classes, methods and functions in one file | No |
-| `find_imports` | `architecture_mapper` | Shows what one file imports | No |
-| `who_imports` | `architecture_mapper` | Shows which files import a given module | No |
-| `import_graph_mermaid` | `architecture_mapper` | Returns the file-to-file import map as Mermaid text | No |
-| `get_project_overview` | `onboarding_guide` | Summarizes each file and the start of `main.py`, and explains where to begin | No |
-| Filesystem MCP tools | `code_explainer` | Read whole files from the sample project (not counted in the 7 tools above) | No |
+| `rag_search` | `code_searcher` | Returns the closest code chunks from Pinecone (file, lines, function name) | Embedding only |
+| `list_project_files` | `architecture_mapper` | Lists `.py` files with line counts | No |
+| `list_functions` | `architecture_mapper` | Lists classes, methods and functions in a file | No |
+| `find_imports` | `architecture_mapper` | Shows what a file imports | No |
+| `who_imports` | `architecture_mapper` | Shows which files import a module | No |
+| `import_graph_mermaid` | `architecture_mapper` | Returns the import map as Mermaid text | No |
+| `get_project_overview` | `onboarding_guide` | Summarizes each file and where to begin | No |
+| Filesystem MCP tools | `code_explainer` | Read whole files (not counted in the 7 above) | No |
 
 Six of the seven tools are plain Python.
 
 ### RAG pipeline
 
-1. **Read:** every top-level .py file in Sample_Project/.
-2. **Split:** hybrid chunking (see below).
-3. **Embed:** each chunk is sent to nvidia/nemotron-3-embed-1b on NVIDIA NIM through the openai client. Chunks are embedded as passage, questions as query. Vectors have 2048 dimensions.
-4. **Store:** Pinecone serverless index code-helper (2048 dimensions, cosine), with file path, line range, chunk type, name and text as metadata.
-5. **Search:** the question is embedded, then Pinecone returns the 5 closest chunks.
+1. **Read:** all top-level `.py` files in `Sample_Project/`.
+2. **Split:** structure-aware chunking (see below).
+3. **Embed:** `nvidia/nemotron-3-embed-1b` on NVIDIA NIM via the `openai` client (2048 dimensions). Chunks are embedded as *passage*, questions as *query*.
+4. **Store:** Pinecone serverless index `code-helper` (cosine), with file path, line range, chunk type, name and text as metadata.
+5. **Search:** the question is embedded and Pinecone returns the 5 closest chunks.
 
-### Chunking: size and why
+### Chunking
 
-Method: hybrid, structure-aware chunking (built with Python's ast module).
+**Method:** structure-aware chunking, built with Python's `ast` module and `tiktoken`. The code is split along its own structure (functions and classes) instead of at fixed sizes.
 
-- Each top-level function is one chunk, and each class is one chunk.
-- Code between definitions (imports, constants, module docstring) becomes a module-level chunk. Module-level chunks under 60 tokens are skipped, because snippets like if __name__ == "__main__": main() carry almost no meaning and matched unrelated questions.
-- Chunk size cap: 300 tokens (counted with tiktoken). A block above the cap is split by lines with a 3-line overlap, so a cut never separates a statement from its context.
-- Methods inside a class stay in the class chunk. A class above 300 tokens is split by lines.
+- **One chunk per function and per class.** Methods stay inside their class chunk.
+- **Module-level code** (imports, constants, docstring) becomes its own chunk. Chunks under 60 tokens are skipped, since snippets like `if __name__ == "__main__": main()` matched unrelated questions.
+- **300-token cap.** A block above the cap is split by lines with a 3-line overlap, so a cut never separates a statement from its context.
 
-### Why I chose it: 
+**Why:** a question like "Where is the search done?" is usually answered by one whole function. Keeping each function and class as one chunk makes every result readable on its own, and the saved line range and name point to an exact place. A fixed-size splitter would cut functions in half.
 
-code has a clear structure that a plain fixed-size splitter ignores, so I combined two methods.
-
-- **Structure first:** A question like "Where is the search done?" is normally answered by one whole function. Making each function and class one chunk keeps every result readable on its own, and the saved line range and function name point to an exact place. Fixed-size splitting would cut functions in half.
-- **Fixed-size splitting as a safety net:** Chunks are capped at 300 tokens, because a very long block mixes several ideas. Longer blocks are split by lines with a 3-line overlap, so a cut never separates a statement from its context. Overlap is used only here.
-- **Module-level code kept, but filtered:** Imports and constants stay as chunks, but those under 60 tokens are skipped because they carry almost no meaning.
-
-On the sample project this gave 49 chunks averaging 205 tokens, with the largest at the 300-token cap.
+**Result on the sample project:** 49 chunks, averaging 205 tokens, with the largest at the 300-token cap.
 
 ### MCP server: Filesystem
 
@@ -68,12 +61,12 @@ On the sample project this gave 49 chunks averaging 205 tokens, with the largest
 
 ### Sample Questions
 
-- **Question 1:** Search goal define in config.py file
+#### Question 1: Search goal define in config.py file
 
 Answer : The goal of the code is to load, validate, and manage credentials and runtime parameters for NVIDIA NIM (Embeddings & LLM Generation) and Pinecone Vector Database. This is done to centralize configuration, prevent scattered calls to os.getenv() across multiple modules, and guarantee that if an API key is missing or the network is unavailable during a live lecture, the system can gracefully inform the student or fall back to a safe offline demonstration mode without crashing.
 
-```
-- **Question 2:** list functions of main.py.
+
+#### Question 2: list functions of main.py.
 
 Answer : The main.py file contains four functions:
 print_banner(title: str)
@@ -81,7 +74,7 @@ print_scorecard(query: str, raw_answer: str, rag_answer: str, chunks: list[dict]
 run_full_demo(config: RAGConfig)
 main()
 
-- **Question 4:** Explain main.py file
+#### Question 3: Explain main.py file
 
 Answer : The main.py file is the entry point of the Naive RAG Live Demonstration & Stage Walkthrough project. It provides an end-to-end interactive CLI runner for the Day 4 Naive RAG lecture, tracing each stage against the 8-box RAG architecture diagram (Slide 13).
 
