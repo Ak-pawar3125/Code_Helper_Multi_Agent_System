@@ -2,7 +2,7 @@ from google.adk.agents.llm_agent import Agent
 from google.adk.models.lite_llm import LiteLlm
 from google.genai import types
 
-from ..tools.mcp_client import mcp_read_file_or_fallback
+from ..tools.mcp_client import mcp_read_file_or_fallback, mcp_read_file
 
 model = LiteLlm(model="nvidia_nim/meta/llama-3.2-11b-vision-instruct")
 
@@ -24,7 +24,7 @@ code_explainer = Agent(
         "   - If the file cannot be read or was not found, say exactly: 'I couldn't read the file.'\n"
         "4. TERMINATE: Output your explanation and stop immediately."
     ),
-    tools=[mcp_read_file_or_fallback],
+    tools=[mcp_read_file_or_fallback, mcp_read_file],
     disallow_transfer_to_parent=True,
     disallow_transfer_to_peers=True,
     generate_content_config=types.GenerateContentConfig(temperature=0),

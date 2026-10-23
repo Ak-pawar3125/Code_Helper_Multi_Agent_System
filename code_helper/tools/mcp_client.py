@@ -139,5 +139,17 @@ def get_mcp_client() -> MCPClient:
     return _mcp_client
 
 
-mcp_read_file_or_fallback = mcp_read_file
-mcp_mermaid_or_fallback = mcp_generate_mermaid
+async def mcp_read_file_or_fallback(file_name: str) -> str:
+    """Read a file using filesystem MCP with native fallback.
+    Args:
+        file_name: The name or relative path of the file to read (e.g. 'vector_store.py').
+    """
+    return await mcp_read_file(file_name)
+
+
+async def mcp_mermaid_or_fallback(diagram_code: str = "") -> str:
+    """Generate mermaid diagram using MCP with native fallback.
+    Args:
+        diagram_code: Optional mermaid diagram source code string.
+    """
+    return await mcp_generate_mermaid(diagram_code)
